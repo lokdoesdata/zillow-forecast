@@ -45,7 +45,7 @@ STATES = [
 
 ESRI_LIMIT = 2000
 
-DATA_PATH = Path(__file__).parents[1].joinpath('data').absolute()
+DATA_PATH = Path(__file__).parents[1].joinpath('data')
 AREA_PATH = DATA_PATH.joinpath('usps_zip_code_area')
 POINT_PATH = DATA_PATH.joinpath('usps_zip_code_point')
 MSA_PATH = DATA_PATH.joinpath('msa')
@@ -69,12 +69,12 @@ del ARC_URL
 
 
 def get_msa_gdf():
-    out_file = MSA_URL.joinpath('gz_2010_us_310_m1_500k.zip')
+    out_file = MSA_PATH.joinpath('gz_2010_us_310_m1_500k.zip')
 
     if not out_file.is_file():
         urlretrieve(MSA_URL, out_file)
 
-    return(gpd.read_file(out_file))
+    return(gpd.read_file('zip://' + str(out_file)))
 
 
 def _combine_and_compress_geojson(geojson, output_file):
@@ -109,7 +109,7 @@ def get_zip_code_gdf_by_state(state, geom_type='area'):
 
     # if file exists, read and return file as GeoDataFrame
     if out_file.is_file():
-        return(gpd.read_file(out_file))
+        return(gpd.read_file('zip://' + str(out_file)))
 
     offset = 0
     temp_data = []
@@ -132,7 +132,7 @@ def get_zip_code_gdf_by_state(state, geom_type='area'):
     _combine_and_compress_geojson(temp_data, out_file)
 
     if out_file.is_file():
-        return(gpd.read_file(out_file))
+        return(gpd.read_file('zip://' + str(out_file)))
 
 
 def get_zip_code_gdf():
@@ -194,11 +194,20 @@ def get_zip_code_gdf():
     gdf_area = gdf_area.merge(gdf_area_intersect, how='left', on='ZIP_CODE')
 
     # Find point zip code within a MSA
-    gdf_point = gdf_point[~gdf_point['ZIP_CODE'].isin(gdf_area['ZIP_CODE'])]
-    gdf_point = gpd.sjoin(
-        gdf_point, gdf_msa,
+    gdf_point_no_area = gdf_point[
+        (~gdf_point['ZIP_CODE'].isin(gdf_area['ZIP_CODE']))].copy()
+    gdf_point_no_area = gpd.sjoin(
+        gdf_point_no_area, gdf_msa,
         how='left', op='within').drop('index_right', axis=1)
 
-    gdf = pd.concat([gdf_area, gdf_point])
+    gdf = pd.concat([gdf_area, gdf_point_no_area])
+
+    gdf_point = gdf_point[['ZIP_CODE', 'geometry']].copy()
+    gdf_point['x'] = gdf_point['geometry'].x
+    gdf_point['y'] = gdf_point['geometry'].y
+
+    gdf_point.drop('geometry', inplace=True, axis=1)
+
+    gdf = gdf.merge(gdf_point, on='ZIP_CODE')
 
     return(gdf)
