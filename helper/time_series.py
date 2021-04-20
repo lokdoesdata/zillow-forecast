@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 from pmdarima.arima import AutoARIMA
 from sklearn.metrics import mean_squared_error as mse
-import warnings
 
 # Vanilla Python
 from contextlib import closing
@@ -19,11 +18,35 @@ import csv
 from datetime import (date, datetime)
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
+import warnings
+
 
 OUTPUT_PATH = Path(__file__).parents[1].joinpath('output').absolute()
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
 warnings.filterwarnings('ignore', category=UserWarning)
+
+STATES = [
+    'AL', 'AK', 'AR', 'AS', 'AZ',
+    'CA', 'CO', 'CT',
+    'DC', 'DE',
+    'FL',
+    'GA', 'GU',
+    'HI',
+    'IA', 'ID', 'IL', 'IN',
+    'KS', 'KY',
+    'LA',
+    'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MP', 'MS', 'MT',
+    'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY',
+    'OH', 'OK', 'OR',
+    'PA', 'PR',
+    'RI',
+    'SC', 'SD',
+    'TN', 'TX',
+    'UT',
+    'VA', 'VI', 'VT',
+    'WA', 'WI', 'WV', 'WY'
+]  # This also include U.S. Territories
 
 
 class TimeSeries:
@@ -102,6 +125,19 @@ class TimeSeries:
                     writer = csv.writer(f)
                     for row in joined_output:
                         writer.writerow(row)
+
+    def forecast_all_states(self, threads=-1):
+        output = []
+
+        for state in STATES:
+            self.forecast_by_state(state, threads=threads)
+            output.append(pd.read_csv(
+                OUTPUT_PATH.joinpath(f'{state}_Forecast.csv'),
+                dtype={'zip_code': 'str'}
+            ))
+
+        output = pd.concat(output, ignore_index=True)
+        return(output)
 
     def _get_forecast_output(self, y):
         model = AutoARIMA(m=12, random_state=718)
