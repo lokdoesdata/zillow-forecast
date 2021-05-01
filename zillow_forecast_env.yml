@@ -1,0 +1,13 @@
+name: zillow_forecast_env
+channels:
+  - conda-forge
+dependencies:
+  - ipykernel
+  - flake8
+  - autopep8
+  - geopandas
+  - seaborn
+  - pip
+  - pip:
+    - pmdarima
+    - contextily

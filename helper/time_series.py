@@ -8,7 +8,8 @@ Author: Lok Ngan (lokdoesdata)
 # Package needed
 import pandas as pd
 import numpy as np
-from pmdarima.arima import AutoARIMA
+import pmdarima as pm
+from pmdarima.arima import (ARIMA, AutoARIMA, auto_arima)
 from sklearn.metrics import mean_squared_error as mse
 
 # Vanilla Python
@@ -71,9 +72,13 @@ class TimeSeries:
         forecast_period=12,
         training_period=36
     ):
+
         self.__data = data
         self.__forecast_date = self.__make_date_date(forecast_start)
-        self.__forecast_str_date = self.__make_date_string(forecast_start)
+        self.__forecast_date = self.__forecast_date.replace(
+            day=1) + relativedelta(months=1, days=-1)
+        self.__forecast_str_date = self.__make_date_string(
+            self.__forecast_date)
         self.__training_period = training_period
         self.__forecast_period = forecast_period
         self.__start_train = self.__forecast_date - relativedelta(
@@ -190,6 +195,41 @@ class TimeSeries:
         output.extend(test_uci)
 
         return(output)
+
+    def single_auto_arima_model(self, y):
+
+        pm.utils.plot_acf(
+            np.array(y), title='Autocorrelation')
+        pm.utils.plot_pacf(
+            np.array(y), title='Partial autocorrelation')
+
+        model = auto_arima(
+            y,
+            error_action='ignore',
+            trace=True,
+            suppress_warnings=True,
+            m=12
+        )
+
+        return(model.summary())
+
+    def single_arima_model(self, arima_text, y, future_steps):
+        if arima_text.endswith('intercept'):
+            with_intercept = True
+        else:
+            with_intercept = False
+
+        order = int(arima_text[6]), int(arima_text[8]), int(arima_text[10])
+        seasonal_order = int(arima_text[13]), int(
+            arima_text[15]), int(arima_text[17]), int(arima_text[20:22])
+
+        model = ARIMA(
+            order=order,
+            seasonal_order=seasonal_order,
+            with_intercept=with_intercept
+        )
+
+        return(model.fit_predict(y, n_periods=future_steps))
 
     def __create_blank_file(self, file_name):
         columns = [
